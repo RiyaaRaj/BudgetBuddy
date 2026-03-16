@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BudgetBuddy — Budget Day Planner</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0d0d0d; --surface: #161616; --surface2: #1e1e1e;
+    --border: #2a2a2a; --accent: #c8f04a; --accent2: #f04a7a;
+    --text: #f0f0f0; --muted: #888; --card-r: 16px;
+  }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; overflow-x: hidden; }
+  .noise { position: fixed; inset: 0; pointer-events: none; z-index: 0; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E"); opacity: 0.4; }
+  .blob { position: fixed; border-radius: 50%; filter: blur(80px); pointer-events: none; z-index: 0; }
+  .blob1 { width: 400px; height: 400px; background: rgba(200,240,74,0.07); top: -100px; right: -100px; }
+  .blob2 { width: 350px; height: 350px; background: rgba(240,74,122,0.06); bottom: 0; left: -80px; }
+
+  /* LOGIN */
+  #loginScreen { position: fixed; inset: 0; z-index: 100; background: var(--bg); display: flex; align-items: center; justify-content: center; padding: 1.5rem; animation: fadeIn 0.4s ease; }
+  #loginScreen.hide { animation: fadeOut 0.35s ease forwards; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; pointer-events: none; } }
+  .login-box { background: var(--surface); border: 1px solid var(--border); border-radius: 24px; padding: 3rem 2rem; width: 100%; max-width: 400px; text-align: center; }
+  .login-logo { font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 700; letter-spacing: 0.15em; color: var(--accent); text-transform: uppercase; margin-bottom: 1.25rem; }
+  .login-icon { width: 64px; height: 64px; border-radius: 18px; background: rgba(200,240,74,0.1); border: 1px solid rgba(200,240,74,0.2); display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; font-size: 28px; }
+  .login-title { font-family: 'Syne', sans-serif; font-size: 2rem; font-weight: 800; line-height: 1.1; margin-bottom: 0.5rem; }
+  .login-sub { font-size: 14px; color: var(--muted); margin-bottom: 2.5rem; line-height: 1.6; }
+  .google-btn { width: 100%; padding: 1rem 1.25rem; background: var(--surface2); border: 1px solid var(--border); border-radius: 14px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 500; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 12px; transition: all 0.2s; }
+  .google-btn:hover { border-color: rgba(200,240,74,0.4); transform: translateY(-1px); }
+  .google-btn:active { transform: scale(0.98); }
+  .google-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+  .google-icon { width: 20px; height: 20px; flex-shrink: 0; }
+  .login-footer { margin-top: 1.5rem; font-size: 11px; color: var(--muted); line-height: 1.6; }
+  .login-footer a { color: var(--accent); text-decoration: none; }
+  #authError { font-size: 12px; color: var(--accent2); margin-top: 14px; min-height: 18px; background: rgba(240,74,122,0.08); border-radius: 8px; padding: 8px 12px; display: none; }
+  #authError.show { display: block; }
+
+  /* APP */
+  #appScreen { display: none; }
+  #appScreen.show { display: block; animation: fadeIn 0.4s ease; }
+  main { position: relative; z-index: 1; max-width: 780px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+  .top-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
+  .logo { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 0.15em; color: var(--accent); text-transform: uppercase; }
+  .user-info { display: flex; align-items: center; gap: 10px; }
+  .user-avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--surface2); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 13px; color: var(--muted); overflow: hidden; flex-shrink: 0; }
+  .user-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+  .user-name { font-size: 13px; color: var(--muted); max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .logout-btn { background: none; border: 1px solid var(--border); border-radius: 8px; color: var(--muted); font-size: 12px; padding: 5px 12px; cursor: pointer; transition: all 0.15s; font-family: 'DM Sans', sans-serif; }
+  .logout-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+  header { margin-bottom: 3rem; }
+  h1 { font-family: 'Syne', sans-serif; font-size: clamp(2rem, 6vw, 3.2rem); font-weight: 800; line-height: 1.05; }
+  h1 span { color: var(--accent); }
+  .subtitle { margin-top: 0.75rem; color: var(--muted); font-size: 15px; font-weight: 300; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--card-r); padding: 1.5rem; margin-bottom: 1.25rem; }
+  .card-label { font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 1rem; }
+  .budget-display { font-family: 'Syne', sans-serif; font-size: 3rem; font-weight: 800; color: var(--accent); line-height: 1; margin-bottom: 0.25rem; }
+  .budget-sub { font-size: 13px; color: var(--muted); margin-bottom: 1.25rem; }
+  input[type=range] { -webkit-appearance: none; width: 100%; height: 4px; background: var(--border); border-radius: 2px; outline: none; cursor: pointer; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: var(--accent); border: 3px solid var(--bg); box-shadow: 0 0 0 1px var(--accent); transition: transform 0.1s; }
+  input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.15); }
+  .range-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 6px; }
+  .vibe-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .vibe-btn { background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 1rem 0.5rem; cursor: pointer; text-align: center; transition: all 0.2s; }
+  .vibe-btn:hover { border-color: var(--accent); }
+  .vibe-btn.active { background: var(--accent); border-color: var(--accent); }
+  .vibe-btn.active .vibe-name { color: #0d0d0d; }
+  .vibe-btn.active .vibe-desc { color: #3a4a10; }
+  .vibe-icon { font-size: 22px; margin-bottom: 6px; }
+  .vibe-name { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; color: var(--text); }
+  .vibe-desc { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .people-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .counter-btn { width: 38px; height: 38px; border-radius: 50%; background: var(--surface2); border: 1px solid var(--border); color: var(--text); font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+  .counter-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .people-count { font-family: 'Syne', sans-serif; font-size: 2rem; font-weight: 800; min-width: 40px; text-align: center; }
+  .people-label { font-size: 13px; color: var(--muted); }
+  .per-person { margin-top: 0.75rem; background: var(--surface2); border-radius: 8px; padding: 8px 12px; font-size: 13px; color: var(--muted); }
+  .per-person strong { color: var(--text); }
+  .city-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin-bottom: 1rem; }
+  .city-btn { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 8px; cursor: pointer; text-align: center; transition: all 0.15s; font-size: 13px; color: var(--text); }
+  .city-btn:hover { border-color: var(--accent); }
+  .city-btn.active { border-color: var(--accent); background: rgba(200,240,74,0.08); color: var(--accent); }
+  .city-emoji { display: block; font-size: 18px; margin-bottom: 4px; }
+  .cta-btn { width: 100%; padding: 1rem; background: var(--accent); color: #0d0d0d; border: none; border-radius: 12px; font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; letter-spacing: 0.05em; cursor: pointer; transition: all 0.2s; text-transform: uppercase; }
+  .cta-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(200,240,74,0.25); }
+  .cta-btn:active { transform: scale(0.98); }
+
+  /* RESULTS */
+  #results { display: none; }
+  #results.show { display: block; animation: fadeUp 0.4s ease; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  .result-header { font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); margin-bottom: 0.75rem; }
+  .plan-title { font-family: 'Syne', sans-serif; font-size: 1.5rem; font-weight: 800; margin-bottom: 0.5rem; }
+  .plan-meta { font-size: 13px; color: var(--muted); margin-bottom: 1.5rem; }
+
+  /* ACTIVITY CARD */
+  .activity { background: var(--surface2); border-radius: 14px; padding: 14px; border: 1px solid var(--border); margin-bottom: 10px; }
+  .activity-top { display: flex; gap: 14px; align-items: flex-start; }
+  .activity-emoji { font-size: 22px; flex-shrink: 0; line-height: 1.2; }
+  .activity-info { flex: 1; }
+  .activity-name { font-weight: 600; font-size: 15px; margin-bottom: 2px; color: var(--text); }
+  .activity-place { font-size: 13px; color: var(--accent); font-weight: 500; margin-bottom: 3px; }
+  .activity-note { font-size: 12px; color: var(--muted); }
+  .activity-cost { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; color: var(--accent); flex-shrink: 0; align-self: center; }
+  .maps-btn { display: inline-flex; align-items: center; gap: 5px; margin-top: 10px; padding: 5px 12px; background: rgba(200,240,74,0.08); border: 1px solid rgba(200,240,74,0.2); border-radius: 20px; font-size: 11px; color: var(--accent); text-decoration: none; font-weight: 500; transition: all 0.15s; cursor: pointer; }
+  .maps-btn:hover { background: rgba(200,240,74,0.15); }
+
+  .budget-bar-wrap { margin-top: 1.5rem; }
+  .budget-bar-labels { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .budget-bar-track { background: var(--border); border-radius: 4px; height: 8px; overflow: hidden; }
+  .budget-bar-fill { height: 100%; border-radius: 4px; transition: width 0.6s cubic-bezier(.4,0,.2,1); }
+  .summary-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-top: 1.25rem; }
+  .summary-cell { background: var(--surface2); border-radius: 10px; padding: 12px; text-align: center; }
+  .summary-val { font-family: 'Syne', sans-serif; font-size: 1.3rem; font-weight: 800; color: var(--text); }
+  .summary-key { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .tips-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 1rem; }
+  .tip { background: var(--surface2); border-radius: 10px; padding: 10px 12px; font-size: 12px; color: var(--muted); border-left: 3px solid var(--accent); }
+  .tip strong { display: block; color: var(--text); font-size: 13px; margin-bottom: 2px; }
+  .share-btn { width: 100%; margin-top: 1rem; padding: 0.75rem; background: transparent; border: 1px solid var(--border); border-radius: 10px; color: var(--text); font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+  .share-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .divider { height: 1px; background: var(--border); margin: 1.5rem 0; }
+
+  @media(max-width: 480px) {
+    .login-box { padding: 2rem 1.25rem; }
+    .summary-grid { grid-template-columns: 1fr 1fr; }
+    .tips-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="noise"></div>
+<div class="blob blob1"></div>
+<div class="blob blob2"></div>
+
+<!-- LOGIN -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">BudgetBuddy</div>
+    <div class="login-icon">💸</div>
+    <div class="login-title">Plan Smart.<br>Spend Better.</div>
+    <div class="login-sub">Sign in with Google to start planning your perfect budget outing.</div>
+    <button class="google-btn" id="googleBtn" onclick="signInWithGoogle()">
+      <svg class="google-icon" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+      Continue with Google
+    </button>
+    <div id="authError"></div>
+    <div class="login-footer">By signing in you agree to use this app responsibly.<br>Your data is handled by <a href="https://firebase.google.com" target="_blank">Firebase Auth</a>.</div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="appScreen">
+  <main>
+    <div class="top-bar">
+      <div class="logo">BudgetBuddy</div>
+      <div class="user-info">
+        <div class="user-avatar" id="userAvatar">?</div>
+        <div class="user-name" id="userName">User</div>
+        <button class="logout-btn" onclick="doSignOut()">Logout</button>
+      </div>
+    </div>
+    <header>
+      <h1>Plan your<br><span>perfect outing</span></h1>
+      <p class="subtitle">Plan Smart. Spend Better.</p>
+    </header>
+
+    <div class="card">
+      <div class="card-label">01 — Total Budget</div>
+      <div class="budget-display" id="budgetDisplay">₹500</div>
+      <div class="budget-sub">Drag to set your total spend limit</div>
+      <input type="range" id="budgetSlider" min="100" max="5000" step="50" value="500">
+      <div class="range-labels"><span>₹100</span><span>₹1,000</span><span>₹2,500</span><span>₹5,000</span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">02 — Choose Your Vibe</div>
+      <div class="vibe-grid">
+        <button class="vibe-btn active" data-vibe="chill" onclick="setVibe(this)"><div class="vibe-icon">🌿</div><div class="vibe-name">Chill</div><div class="vibe-desc">Relax & unwind</div></button>
+        <button class="vibe-btn" data-vibe="slow" onclick="setVibe(this)"><div class="vibe-icon">☕</div><div class="vibe-name">Slow</div><div class="vibe-desc">Explore & wander</div></button>
+        <button class="vibe-btn" data-vibe="adventurous" onclick="setVibe(this)"><div class="vibe-icon">⚡</div><div class="vibe-name">Adventurous</div><div class="vibe-desc">Thrills & energy</div></button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">03 — Number of People</div>
+      <div class="people-row">
+        <button class="counter-btn" onclick="changePeople(-1)">−</button>
+        <div class="people-count" id="peopleCount">2</div>
+        <div class="people-label">people</div>
+        <button class="counter-btn" onclick="changePeople(1)">+</button>
+      </div>
+      <div class="per-person">Budget per person: <strong id="perPerson">₹250</strong></div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">04 — Pick Your City</div>
+      <div class="city-grid">
+        <button class="city-btn active" data-city="Chennai" onclick="setCity(this)"><span class="city-emoji">🌊</span>Chennai</button>
+        <button class="city-btn" data-city="Mumbai" onclick="setCity(this)"><span class="city-emoji">🏙️</span>Mumbai</button>
+        <button class="city-btn" data-city="Delhi" onclick="setCity(this)"><span class="city-emoji">🏛️</span>Delhi</button>
+        <button class="city-btn" data-city="Bangalore" onclick="setCity(this)"><span class="city-emoji">🌳</span>Bangalore</button>
+        <button class="city-btn" data-city="Hyderabad" onclick="setCity(this)"><span class="city-emoji">💎</span>Hyderabad</button>
+        <button class="city-btn" data-city="Kolkata" onclick="setCity(this)"><span class="city-emoji">🎨</span>Kolkata</button>
+        <button class="city-btn" data-city="Pune" onclick="setCity(this)"><span class="city-emoji">⛰️</span>Pune</button>
+        <button class="city-btn" data-city="Jaipur" onclick="setCity(this)"><span class="city-emoji">🏰</span>Jaipur</button>
+      </div>
+    </div>
+
+    <button class="cta-btn" onclick="generatePlan()">✦ Generate My Plan</button>
+
+    <div id="results">
+      <div class="divider"></div>
+      <div class="card">
+        <div class="result-header">Your Plan Is Ready</div>
+        <div class="plan-title" id="planTitle"></div>
+        <div class="plan-meta" id="planMeta"></div>
+        <div id="activityList"></div>
+        <div class="budget-bar-wrap">
+          <div class="budget-bar-labels"><span>₹0 spent</span><span id="barLabel"></span></div>
+          <div class="budget-bar-track"><div class="budget-bar-fill" id="budgetBarFill" style="width:0%"></div></div>
+        </div>
+        <div class="summary-grid">
+          <div class="summary-cell"><div class="summary-val" id="sumSpent">₹0</div><div class="summary-key">Total Spent</div></div>
+          <div class="summary-cell"><div class="summary-val" id="sumSaved">₹0</div><div class="summary-key">Saved</div></div>
+          <div class="summary-cell"><div class="summary-val" id="sumPer">₹0</div><div class="summary-key">Per Person</div></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-label">💡 Budget Tips</div>
+        <div class="tips-grid" id="tipsGrid"></div>
+      </div>
+      <button class="share-btn" onclick="copyPlan()">📋 Copy Plan as Text</button>
+    </div>
+  </main>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script>
+  firebase.initializeApp({
+    apiKey: "AIzaSyCDWsdIjhZHauN3JguvqGLvglHPjMnEKEo",
+    authDomain: "budgetbuddy-19bdf.firebaseapp.com",
+    projectId: "budgetbuddy-19bdf",
+    storageBucket: "budgetbuddy-19bdf.firebasestorage.app",
+    messagingSenderId: "538136779448",
+    appId: "1:538136779448:web:dcdbcc1801e332c3e2b24d"
+  });
+  const auth = firebase.auth();
+
+  auth.onAuthStateChanged(user => {
+    if (user) { showApp(user); }
+    else {
+      document.getElementById('loginScreen').style.display = 'flex';
+      document.getElementById('loginScreen').classList.remove('hide');
+      document.getElementById('appScreen').classList.remove('show');
+    }
+  });
+
+  function showApp(user) {
+    const ls = document.getElementById('loginScreen');
+    ls.classList.add('hide');
+    setTimeout(() => { ls.style.display = 'none'; }, 350);
+    document.getElementById('appScreen').classList.add('show');
+    const avatar = document.getElementById('userAvatar');
+    if (user.photoURL) { avatar.innerHTML = `<img src="${user.photoURL}" alt="">`; }
+    else { avatar.textContent = (user.displayName || user.email || 'U')[0].toUpperCase(); }
+    document.getElementById('userName').textContent = (user.displayName || user.email || 'User').split(' ')[0];
+  }
+
+  function signInWithGoogle() {
+    const btn = document.getElementById('googleBtn');
+    btn.disabled = true; btn.textContent = 'Signing in...';
+    setError('');
+    auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(e => {
+      btn.disabled = false;
+      btn.innerHTML = `<svg class="google-icon" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg> Continue with Google`;
+      setError(friendlyError(e));
+    });
+  }
+
+  function doSignOut() { auth.signOut(); }
+  function setError(msg) { const el = document.getElementById('authError'); el.textContent = msg; el.classList.toggle('show', !!msg); }
+  function friendlyError(e) {
+    const map = { 'auth/popup-closed-by-user': 'Sign-in was cancelled.', 'auth/popup-blocked': 'Popup blocked. Please allow popups.', 'auth/network-request-failed': 'Network error. Check your connection.', 'auth/unauthorized-domain': 'This domain is not authorized. Add it in Firebase Console.', 'auth/cancelled-popup-request': '' };
+    return map[e.code] || ('Error: ' + e.message);
+  }
+
+  // ── App State ──
+  let budget = 500, people = 2, vibe = 'chill', city = 'Chennai';
+
+  document.getElementById('budgetSlider').addEventListener('input', function() {
+    budget = parseInt(this.value);
+    document.getElementById('budgetDisplay').textContent = '₹' + budget.toLocaleString('en-IN');
+    updatePerPerson();
+  });
+  function updatePerPerson() { document.getElementById('perPerson').textContent = '₹' + Math.round(budget / people).toLocaleString('en-IN'); }
+  function setVibe(el) { document.querySelectorAll('.vibe-btn').forEach(b => b.classList.remove('active')); el.classList.add('active'); vibe = el.dataset.vibe; }
+  function changePeople(d) { people = Math.max(1, Math.min(20, people + d)); document.getElementById('peopleCount').textContent = people; updatePerPerson(); }
+  function setCity(el) { document.querySelectorAll('.city-btn').forEach(b => b.classList.remove('active')); el.classList.add('active'); city = el.dataset.city; }
+
+  // ── Real Named Places Database ──
+  const cityPlaces = {
+    Chennai: {
+      chill: [
+        { name: 'Temple visit', place: 'Kapaleeshwarar Temple', emoji: '🛕', baseCost: 0, note: 'Ancient Dravidian architecture, free entry', maps: 'Kapaleeshwarar+Temple+Chennai' },
+        { name: 'Beach walk', place: 'Marina Beach', emoji: '🌊', baseCost: 0, note: 'World\'s longest urban beach, free forever', maps: 'Marina+Beach+Chennai' },
+        { name: 'Park visit', place: 'Semmozhi Poonga', emoji: '🌿', baseCost: 20, note: 'Botanical garden, peaceful and budget-friendly', maps: 'Semmozhi+Poonga+Chennai' },
+        { name: 'Street food stop', place: 'Murugan Idli Shop', emoji: '🍽️', baseCost: 60, note: 'Famous soft idlis, sambar, chutney combo', maps: 'Murugan+Idli+Shop+Chennai' },
+        { name: 'Evening snack', place: 'Ratna Cafe', emoji: '☕', baseCost: 40, note: 'Iconic Chennai filter coffee & snacks', maps: 'Ratna+Cafe+Chennai' },
+        { name: 'Juice break', place: 'Kalathi Juice Corner', emoji: '🥤', baseCost: 30, note: 'Fresh fruit juices, very affordable', maps: 'Kalathi+Juice+Chennai' },
+        { name: 'Heritage walk', place: 'Mylapore Heritage Walk', emoji: '🚶', baseCost: 0, note: 'Free walk through ancient Mylapore streets', maps: 'Mylapore+Chennai' },
+      ],
+      slow: [
+        { name: 'Museum visit', place: 'Government Museum Chennai', emoji: '🏛️', baseCost: 15, note: 'One of India\'s oldest museums, student discount', maps: 'Government+Museum+Chennai' },
+        { name: 'Art gallery', place: 'DakshinaChitra Heritage Museum', emoji: '🎨', baseCost: 75, note: 'South Indian culture & crafts', maps: 'DakshinaChitra+Chennai' },
+        { name: 'Café browse', place: 'Amethyst Cafe', emoji: '📚', baseCost: 80, note: 'Cosy café with books and garden', maps: 'Amethyst+Cafe+Chennai' },
+        { name: 'Market stroll', place: 'T. Nagar Shopping District', emoji: '🛍️', baseCost: 100, note: 'Window shop silk sarees & street buys', maps: 'T+Nagar+Chennai' },
+        { name: 'Street food crawl', place: 'Sowcarpet Street Food Lane', emoji: '🌮', baseCost: 100, note: 'North Indian street food in the heart of Chennai', maps: 'Sowcarpet+Chennai' },
+        { name: 'Sunset spot', place: 'Besant Nagar Beach (Elliot\'s Beach)', emoji: '🌅', baseCost: 0, note: 'Calm beach, great sunset views, free entry', maps: 'Elliot+Beach+Chennai' },
+        { name: 'Local bus ride', place: 'MTC Bus City Tour', emoji: '🚌', baseCost: 20, note: 'See the whole city for just Rs.20', maps: 'Chennai+MTC+bus' },
+      ],
+      adventurous: [
+        { name: 'Cycling', place: 'Necklace Road Cycling Track', emoji: '🚴', baseCost: 80, note: 'Rent cycles along the ECR road', maps: 'ECR+Chennai+cycling' },
+        { name: 'Trekking', place: 'Vandalur Zoo & Nature Walk', emoji: '🌲', baseCost: 60, note: 'Large zoo with nature trails', maps: 'Vandalur+Zoo+Chennai' },
+        { name: 'Water sport', place: 'Muttukadu Boathouse', emoji: '🚣', baseCost: 100, note: 'Boating on the backwaters', maps: 'Muttukadu+Boathouse+Chennai' },
+        { name: 'Sports ground', place: 'Jawaharlal Nehru Stadium', emoji: '🏸', baseCost: 50, note: 'Badminton & outdoor courts', maps: 'Jawaharlal+Nehru+Stadium+Chennai' },
+        { name: 'Outdoor game', place: 'Island Grounds', emoji: '⚽', baseCost: 0, note: 'Open ground for cricket & football', maps: 'Island+Grounds+Chennai' },
+        { name: 'Day trip', place: 'Mahabalipuram Shore Temple', emoji: '🏄', baseCost: 40, note: 'UNESCO site, 1.5hr bus ride from Chennai', maps: 'Mahabalipuram+Shore+Temple' },
+        { name: 'Snack up', place: 'Pondicherry House Restaurant', emoji: '🥙', baseCost: 70, note: 'Hearty South Indian meals for energy', maps: 'Pondicherry+House+Chennai' },
+      ]
+    },
+    Mumbai: {
+      chill: [
+        { name: 'Temple visit', place: 'Siddhivinayak Temple', emoji: '🛕', baseCost: 0, note: 'Famous Ganesh temple, peaceful atmosphere', maps: 'Siddhivinayak+Temple+Mumbai' },
+        { name: 'Beach walk', place: 'Juhu Beach', emoji: '🌊', baseCost: 0, note: 'Iconic Mumbai beach, free and lively', maps: 'Juhu+Beach+Mumbai' },
+        { name: 'Street food', place: 'Vada Pav at Ashok Vada Pav', emoji: '🍔', baseCost: 30, note: 'Mumbai\'s most famous vada pav stall', maps: 'Ashok+Vada+Pav+Mumbai' },
+        { name: 'Garden visit', place: 'Hanging Gardens', emoji: '🌿', baseCost: 0, note: 'Scenic hilltop garden, free entry', maps: 'Hanging+Gardens+Mumbai' },
+        { name: 'Chai break', place: 'Kyani & Co. Cafe', emoji: '☕', baseCost: 40, note: 'Legendary Irani café since 1904', maps: 'Kyani+Co+Mumbai' },
+        { name: 'Evening walk', place: 'Marine Drive (Queen\'s Necklace)', emoji: '🌅', baseCost: 0, note: 'Best evening walk in Mumbai, free', maps: 'Marine+Drive+Mumbai' },
+        { name: 'Lunch', place: 'Sardar Refreshments', emoji: '🍱', baseCost: 80, note: 'Famous pav bhaji since 1956', maps: 'Sardar+Pav+Bhaji+Mumbai' },
+      ],
+      slow: [
+        { name: 'Museum', place: 'Chhatrapati Shivaji Maharaj Vastu Sangrahalaya', emoji: '🏛️', baseCost: 85, note: 'Stunning colonial-era museum', maps: 'CSMVS+Museum+Mumbai' },
+        { name: 'Market browse', place: 'Chor Bazaar Antique Market', emoji: '🛍️', baseCost: 50, note: 'Amazing antiques & unique finds', maps: 'Chor+Bazaar+Mumbai' },
+        { name: 'Café', place: 'Café Mondegar', emoji: '📚', baseCost: 80, note: 'Iconic café with Mario Miranda murals', maps: 'Cafe+Mondegar+Mumbai' },
+        { name: 'Food street', place: 'Mohammed Ali Road Street Food', emoji: '🌮', baseCost: 100, note: 'Best kebabs, nihari and biryani', maps: 'Mohammed+Ali+Road+Mumbai' },
+        { name: 'Heritage walk', place: 'Kala Ghoda Art District', emoji: '🎨', baseCost: 0, note: 'Free outdoor art installations & galleries', maps: 'Kala+Ghoda+Mumbai' },
+        { name: 'Sunset', place: 'Gateway of India', emoji: '🌅', baseCost: 0, note: 'Iconic monument, best at sunset, free', maps: 'Gateway+of+India+Mumbai' },
+        { name: 'Train ride', place: 'Mumbai Local Train', emoji: '🚂', baseCost: 15, note: 'Experience Mumbai\'s lifeline for Rs.15', maps: 'Mumbai+local+train' },
+      ],
+      adventurous: [
+        { name: 'Trek', place: 'Sanjay Gandhi National Park Trek', emoji: '🧗', baseCost: 50, note: 'Forest trek inside the city!', maps: 'Sanjay+Gandhi+National+Park+Mumbai' },
+        { name: 'Cycling', place: 'Bandra Bandstand Promenade', emoji: '🚴', baseCost: 60, note: 'Cycle rentals along the seafront', maps: 'Bandra+Bandstand+Mumbai' },
+        { name: 'Cricket ground', place: 'Shivaji Park Grounds', emoji: '⚽', baseCost: 0, note: 'Free cricket & football ground', maps: 'Shivaji+Park+Mumbai' },
+        { name: 'Caves visit', place: 'Elephanta Caves', emoji: '🏔️', baseCost: 60, note: 'UNESCO caves via ferry, very affordable', maps: 'Elephanta+Caves+Mumbai' },
+        { name: 'Sport', place: 'Priyadarshini Park Jogging Track', emoji: '🏃', baseCost: 0, note: 'Free park with fitness equipment', maps: 'Priyadarshini+Park+Mumbai' },
+        { name: 'Day trip', place: 'Kanheri Caves Day Trek', emoji: '🌲', baseCost: 30, note: 'Ancient Buddhist caves inside SGNP', maps: 'Kanheri+Caves+Mumbai' },
+        { name: 'Energy meal', place: 'Swati Snacks', emoji: '🥙', baseCost: 80, note: 'Healthy Gujarati street snacks', maps: 'Swati+Snacks+Mumbai' },
+      ]
+    },
+    Delhi: {
+      chill: [
+        { name: 'Temple visit', place: 'Lotus Temple (Bahá\'í House)', emoji: '🛕', baseCost: 0, note: 'Beautiful lotus-shaped temple, free entry', maps: 'Lotus+Temple+Delhi' },
+        { name: 'Monument visit', place: 'India Gate', emoji: '🏛️', baseCost: 0, note: 'Iconic war memorial, free & open all day', maps: 'India+Gate+Delhi' },
+        { name: 'Garden', place: 'Lodhi Garden', emoji: '🌿', baseCost: 0, note: 'Beautiful 15th century garden, free entry', maps: 'Lodhi+Garden+Delhi' },
+        { name: 'Street food', place: 'Paranthe Wali Gali, Chandni Chowk', emoji: '🥞', baseCost: 60, note: 'Famous stuffed parathas since 1875', maps: 'Paranthe+Wali+Gali+Delhi' },
+        { name: 'Chai stop', place: 'Chaayos Café', emoji: '☕', baseCost: 50, note: 'Best chai variations in Delhi', maps: 'Chaayos+Delhi' },
+        { name: 'Evening walk', place: 'Connaught Place', emoji: '🌆', baseCost: 0, note: 'Free walk around Delhi\'s heart', maps: 'Connaught+Place+Delhi' },
+        { name: 'Lunch', place: 'Saravana Bhavan', emoji: '🍱', baseCost: 80, note: 'South Indian thali, very affordable', maps: 'Saravana+Bhavan+Delhi' },
+      ],
+      slow: [
+        { name: 'Museum', place: 'National Museum Delhi', emoji: '🏛️', baseCost: 20, note: 'India\'s largest museum, student discount available', maps: 'National+Museum+Delhi' },
+        { name: 'Bazaar walk', place: 'Dilli Haat Craft Market', emoji: '🛍️', baseCost: 30, note: 'Crafts from all over India in one place', maps: 'Dilli+Haat+Delhi' },
+        { name: 'Heritage', place: 'Humayun\'s Tomb', emoji: '🕌', baseCost: 35, note: 'UNESCO site, inspiration for Taj Mahal', maps: 'Humayun+Tomb+Delhi' },
+        { name: 'Street food', place: 'Chandni Chowk Food Walk', emoji: '🌮', baseCost: 100, note: 'Jalebi, chaat, biryani all in one lane', maps: 'Chandni+Chowk+Delhi' },
+        { name: 'Café', place: 'The Piano Man Jazz Club Café', emoji: '📚', baseCost: 70, note: 'Chill café with good music', maps: 'Piano+Man+Jazz+Club+Delhi' },
+        { name: 'Sunset', place: 'Qutub Minar', emoji: '🌅', baseCost: 35, note: 'UNESCO minaret, beautiful at sunset', maps: 'Qutub+Minar+Delhi' },
+        { name: 'Metro ride', place: 'Delhi Metro Blue Line', emoji: '🚇', baseCost: 25, note: 'See Delhi cheaply on the metro', maps: 'Delhi+Metro' },
+      ],
+      adventurous: [
+        { name: 'Trek', place: 'Aravalli Biodiversity Park', emoji: '🧗', baseCost: 0, note: 'Free nature walk & trail in the city', maps: 'Aravalli+Biodiversity+Park+Delhi' },
+        { name: 'Cycling', place: 'Nehru Park Cycling Track', emoji: '🚴', baseCost: 50, note: 'Rent cycles in this massive park', maps: 'Nehru+Park+Delhi' },
+        { name: 'Sport', place: 'Siri Fort Sports Complex', emoji: '🏸', baseCost: 60, note: 'Badminton & squash courts', maps: 'Siri+Fort+Sports+Delhi' },
+        { name: 'Adventure', place: 'Delhi Rock Climbing Wall', emoji: '🏔️', baseCost: 80, note: 'Indoor rock climbing in Siri Fort', maps: 'Siri+Fort+Rock+Climbing+Delhi' },
+        { name: 'Open ground', place: 'Jawaharlal Nehru Stadium Grounds', emoji: '⚽', baseCost: 0, note: 'Free ground for sports', maps: 'JLN+Stadium+Delhi' },
+        { name: 'Day trip', place: 'Sultanpur Bird Sanctuary', emoji: '🌲', baseCost: 30, note: 'Bird watching day trip near Delhi', maps: 'Sultanpur+Bird+Sanctuary' },
+        { name: 'Meal', place: 'Al Jawahar Restaurant', emoji: '🥙', baseCost: 80, note: 'Old Delhi mutton curry, very filling', maps: 'Al+Jawahar+Delhi' },
+      ]
+    },
+    Bangalore: {
+      chill: [
+        { name: 'Temple', place: 'ISKCON Temple Bangalore', emoji: '🛕', baseCost: 0, note: 'Stunning temple complex, peaceful & free', maps: 'ISKCON+Temple+Bangalore' },
+        { name: 'Park', place: 'Lalbagh Botanical Garden', emoji: '🌿', baseCost: 10, note: 'Beautiful 240-acre garden, very affordable', maps: 'Lalbagh+Botanical+Garden+Bangalore' },
+        { name: 'Park', place: 'Cubbon Park', emoji: '🌳', baseCost: 0, note: 'Huge park in city center, free entry', maps: 'Cubbon+Park+Bangalore' },
+        { name: 'Breakfast', place: 'MTR Restaurant (Mavalli Tiffin Rooms)', emoji: '🍽️', baseCost: 60, note: 'Famous masala dosa since 1924', maps: 'MTR+Restaurant+Bangalore' },
+        { name: 'Café', place: 'Koshy\'s Café', emoji: '☕', baseCost: 60, note: 'Bangalore\'s most iconic old café', maps: 'Koshys+Cafe+Bangalore' },
+        { name: 'Evening', place: 'Ulsoor Lake', emoji: '🌅', baseCost: 0, note: 'Calm lake walk, free and peaceful', maps: 'Ulsoor+Lake+Bangalore' },
+        { name: 'Lunch', place: 'Vidyarthi Bhavan', emoji: '🍱', baseCost: 50, note: 'Legendary dosa place, cash only, very cheap', maps: 'Vidyarthi+Bhavan+Bangalore' },
+      ],
+      slow: [
+        { name: 'Museum', place: 'Visvesvaraya Industrial & Tech Museum', emoji: '🏛️', baseCost: 60, note: 'Interactive science museum, student discount', maps: 'Visvesvaraya+Museum+Bangalore' },
+        { name: 'Market', place: 'Commercial Street Market', emoji: '🛍️', baseCost: 100, note: 'Budget clothes and accessories shopping', maps: 'Commercial+Street+Bangalore' },
+        { name: 'Café', place: 'Matteo Coffea', emoji: '📚', baseCost: 80, note: 'Third wave coffee, great ambience', maps: 'Matteo+Coffea+Bangalore' },
+        { name: 'Street food', place: 'VV Puram Food Street', emoji: '🌮', baseCost: 100, note: 'Best food street in Bangalore — masala puri, dahi puri', maps: 'VV+Puram+Food+Street+Bangalore' },
+        { name: 'Heritage', place: 'Bangalore Palace', emoji: '🏰', baseCost: 230, note: 'Tudor-style royal palace', maps: 'Bangalore+Palace' },
+        { name: 'Sunset', place: 'Nandi Hills Sunset View', emoji: '🌅', baseCost: 30, note: 'Best sunset viewpoint near Bangalore', maps: 'Nandi+Hills+Bangalore' },
+        { name: 'Bus ride', place: 'BMTC City Bus Tour', emoji: '🚌', baseCost: 20, note: 'See Bangalore on a Rs.20 bus', maps: 'BMTC+Bangalore' },
+      ],
+      adventurous: [
+        { name: 'Trek', place: 'Skandagiri Night Trek', emoji: '🧗', baseCost: 50, note: 'Popular hill trek near Bangalore', maps: 'Skandagiri+Bangalore' },
+        { name: 'Cycling', place: 'Bannerghatta National Park Cycling', emoji: '🚴', baseCost: 70, note: 'Cycling trails in forest area', maps: 'Bannerghatta+National+Park+Bangalore' },
+        { name: 'Sport', place: 'Kanteerava Indoor Stadium', emoji: '🏸', baseCost: 60, note: 'Badminton courts, book in advance', maps: 'Kanteerava+Stadium+Bangalore' },
+        { name: 'Outdoor', place: 'Turahalli Forest Trail', emoji: '🌲', baseCost: 0, note: 'Free urban forest trekking trail', maps: 'Turahalli+Forest+Bangalore' },
+        { name: 'Open ground', place: 'Koramangala Indoor Stadium', emoji: '⚽', baseCost: 30, note: 'Football & cricket grounds', maps: 'Koramangala+Stadium+Bangalore' },
+        { name: 'Day trip', place: 'Bheemeshwari Nature Camp', emoji: '🏕️', baseCost: 100, note: 'River & nature day trip', maps: 'Bheemeshwari+Bangalore' },
+        { name: 'Meal', place: 'Empire Restaurant', emoji: '🥙', baseCost: 80, note: 'Famous for chicken & biryani', maps: 'Empire+Restaurant+Bangalore' },
+      ]
+    },
+    Hyderabad: {
+      chill: [
+        { name: 'Temple', place: 'Birla Mandir', emoji: '🛕', baseCost: 0, note: 'Stunning white marble temple, free entry', maps: 'Birla+Mandir+Hyderabad' },
+        { name: 'Monument', place: 'Charminar', emoji: '🕌', baseCost: 25, note: 'Iconic 400-year-old monument', maps: 'Charminar+Hyderabad' },
+        { name: 'Garden', place: 'NTR Gardens', emoji: '🌿', baseCost: 20, note: 'Large park by the lake, very affordable', maps: 'NTR+Gardens+Hyderabad' },
+        { name: 'Irani chai', place: 'Nimrah Café & Bakery', emoji: '☕', baseCost: 20, note: 'Best Irani chai near Charminar since 1993', maps: 'Nimrah+Cafe+Hyderabad' },
+        { name: 'Street food', place: 'Laad Bazaar Street Food', emoji: '🍽️', baseCost: 60, note: 'Haleem, biryani, and sweets in one lane', maps: 'Laad+Bazaar+Hyderabad' },
+        { name: 'Lake walk', place: 'Hussain Sagar Lake', emoji: '🌅', baseCost: 0, note: 'Large lake with Buddha statue, free walk', maps: 'Hussain+Sagar+Lake+Hyderabad' },
+        { name: 'Lunch', place: 'Hotel Shadab', emoji: '🍱', baseCost: 80, note: 'Legendary Hyderabadi biryani', maps: 'Hotel+Shadab+Hyderabad' },
+      ],
+      slow: [
+        { name: 'Museum', place: 'Salar Jung Museum', emoji: '🏛️', baseCost: 20, note: 'World\'s largest one-man art collection', maps: 'Salar+Jung+Museum+Hyderabad' },
+        { name: 'Fort visit', place: 'Golconda Fort', emoji: '🏰', baseCost: 25, note: 'Historic fort with sound & light show', maps: 'Golconda+Fort+Hyderabad' },
+        { name: 'Market', place: 'Laad Bazaar Bangle Shopping', emoji: '🛍️', baseCost: 80, note: 'Famous for colorful lac bangles', maps: 'Laad+Bazaar+Hyderabad' },
+        { name: 'Café', place: 'Café Bahar', emoji: '📚', baseCost: 70, note: 'Old school Hyderabadi café', maps: 'Cafe+Bahar+Hyderabad' },
+        { name: 'Food street', place: 'Madina Hotel Food Street', emoji: '🌮', baseCost: 100, note: 'Authentic Old City street food', maps: 'Madina+Hotel+Hyderabad' },
+        { name: 'Sunset', place: 'Necklace Road Sunset Point', emoji: '🌅', baseCost: 0, note: 'Beautiful lake sunset, free', maps: 'Necklace+Road+Hyderabad' },
+        { name: 'Bus', place: 'TSRTC City Bus', emoji: '🚌', baseCost: 15, note: 'Cheapest way to see the city', maps: 'TSRTC+Hyderabad' },
+      ],
+      adventurous: [
+        { name: 'Trek', place: 'Ananthagiri Hills Trek', emoji: '🧗', baseCost: 40, note: 'Green hills, easy day trek', maps: 'Ananthagiri+Hills+Hyderabad' },
+        { name: 'Cycling', place: 'Durgam Cheruvu Cycling Track', emoji: '🚴', baseCost: 60, note: 'Scenic cycling around the lake', maps: 'Durgam+Cheruvu+Hyderabad' },
+        { name: 'Sport', place: 'Gachibowli Stadium', emoji: '🏸', baseCost: 50, note: 'Sports courts available for rent', maps: 'Gachibowli+Stadium+Hyderabad' },
+        { name: 'Nature', place: 'KBR National Park Trail', emoji: '🌲', baseCost: 25, note: 'Urban forest with peacocks & deer', maps: 'KBR+National+Park+Hyderabad' },
+        { name: 'Open ground', place: 'Lumbini Park', emoji: '⚽', baseCost: 15, note: 'Park with laser shows in evenings', maps: 'Lumbini+Park+Hyderabad' },
+        { name: 'Day trip', place: 'Nagarjuna Sagar Dam Trip', emoji: '🏊', baseCost: 80, note: 'Massive dam day trip', maps: 'Nagarjuna+Sagar+Dam' },
+        { name: 'Meal', place: 'Paradise Biryani', emoji: '🥙', baseCost: 100, note: 'Most famous biryani in Hyderabad', maps: 'Paradise+Biryani+Hyderabad' },
+      ]
+    },
+    Kolkata: {
+      chill: [
+        { name: 'Temple', place: 'Dakshineswar Kali Temple', emoji: '🛕', baseCost: 0, note: 'Famous riverside temple, free entry', maps: 'Dakshineswar+Kali+Temple+Kolkata' },
+        { name: 'Monument', place: 'Victoria Memorial', emoji: '🏛️', baseCost: 20, note: 'Iconic white marble monument', maps: 'Victoria+Memorial+Kolkata' },
+        { name: 'Park', place: 'Maidan Park', emoji: '🌿', baseCost: 0, note: 'Massive open park, free forever', maps: 'Maidan+Kolkata' },
+        { name: 'Street food', place: 'Puchka at Vivekananda Park', emoji: '🍽️', baseCost: 30, note: 'Best pani puri in India!', maps: 'Vivekananda+Park+Kolkata' },
+        { name: 'Chai', place: 'Indian Coffee House', emoji: '☕', baseCost: 30, note: 'Iconic 1940s coffee house, very cheap', maps: 'Indian+Coffee+House+Kolkata' },
+        { name: 'Evening', place: 'Prinsep Ghat', emoji: '🌅', baseCost: 0, note: 'Beautiful riverside sunset spot, free', maps: 'Prinsep+Ghat+Kolkata' },
+        { name: 'Lunch', place: 'Arsalan Restaurant', emoji: '🍱', baseCost: 90, note: 'Famous Kolkata biryani with potato', maps: 'Arsalan+Restaurant+Kolkata' },
+      ],
+      slow: [
+        { name: 'Museum', place: 'Indian Museum Kolkata', emoji: '🏛️', baseCost: 20, note: 'Oldest & largest museum in India', maps: 'Indian+Museum+Kolkata' },
+        { name: 'Market', place: 'New Market (Hogg Market)', emoji: '🛍️', baseCost: 80, note: 'Budget shopping for everything', maps: 'New+Market+Kolkata' },
+        { name: 'Café', place: 'Flurys Tea Room', emoji: '📚', baseCost: 70, note: 'Heritage café since 1927', maps: 'Flurys+Kolkata' },
+        { name: 'Food street', place: 'Tiretti Bazaar Chinese Food Street', emoji: '🌮', baseCost: 80, note: 'Authentic Chinese breakfast street', maps: 'Tiretti+Bazaar+Kolkata' },
+        { name: 'Heritage', place: 'College Street Book Market', emoji: '🎨', baseCost: 50, note: 'World\'s largest second-hand book market', maps: 'College+Street+Kolkata' },
+        { name: 'Tram ride', place: 'Kolkata Tram Ride', emoji: '🚃', baseCost: 10, note: 'India\'s only tram city, Rs.10 per ride!', maps: 'Kolkata+Tram' },
+        { name: 'Sunset', place: 'Howrah Bridge Evening Walk', emoji: '🌅', baseCost: 0, note: 'Walk across India\'s iconic cantilever bridge', maps: 'Howrah+Bridge+Kolkata' },
+      ],
+      adventurous: [
+        { name: 'Trek', place: 'Biharinath Hill Trek (Day Trip)', emoji: '🧗', baseCost: 60, note: 'Nearest hill trek from Kolkata', maps: 'Biharinath+Hill+Kolkata' },
+        { name: 'Cycling', place: 'Eco Park Cycling Track', emoji: '🚴', baseCost: 50, note: 'Huge cycling track in Eco Park', maps: 'Eco+Park+Kolkata+cycling' },
+        { name: 'Sport', place: 'Netaji Indoor Stadium', emoji: '🏸', baseCost: 50, note: 'Badminton & sports courts', maps: 'Netaji+Indoor+Stadium+Kolkata' },
+        { name: 'Nature', place: 'East Kolkata Wetlands Walk', emoji: '🌲', baseCost: 0, note: 'Free wetland nature walk', maps: 'East+Kolkata+Wetlands' },
+        { name: 'Open ground', place: 'Salt Lake Stadium Grounds', emoji: '⚽', baseCost: 0, note: 'Football ground, free to use', maps: 'Salt+Lake+Stadium+Kolkata' },
+        { name: 'Day trip', place: 'Sundarbans Day Trip', emoji: '🏕️', baseCost: 100, note: 'Mangrove forest boat ride', maps: 'Sundarbans+Kolkata' },
+        { name: 'Meal', place: 'Oh! Calcutta Restaurant', emoji: '🥙', baseCost: 90, note: 'Classic Bengali cuisine', maps: 'Oh+Calcutta+Restaurant' },
+      ]
+    },
+    Pune: {
+      chill: [
+        { name: 'Temple', place: 'Dagdusheth Halwai Ganapati Temple', emoji: '🛕', baseCost: 0, note: 'Most famous Ganesh temple in Pune', maps: 'Dagdusheth+Ganapati+Temple+Pune' },
+        { name: 'Garden', place: 'Aga Khan Palace Garden', emoji: '🌿', baseCost: 25, note: 'Historic garden where Gandhi was held', maps: 'Aga+Khan+Palace+Pune' },
+        { name: 'Park', place: 'Empress Botanical Garden', emoji: '🌳', baseCost: 10, note: 'Beautiful 19th century botanical garden', maps: 'Empress+Garden+Pune' },
+        { name: 'Breakfast', place: 'Vaishali Restaurant', emoji: '🍽️', baseCost: 60, note: 'Iconic Pune breakfast since 1960s', maps: 'Vaishali+Restaurant+Pune' },
+        { name: 'Chai stop', place: 'Vohuman Café', emoji: '☕', baseCost: 30, note: 'Best Irani chai & bun maska in Pune', maps: 'Vohuman+Cafe+Pune' },
+        { name: 'Evening', place: 'Parvati Hill Sunset', emoji: '🌅', baseCost: 10, note: 'Best sunset view over Pune city', maps: 'Parvati+Hill+Pune' },
+        { name: 'Lunch', place: 'Durvankur Dining Hall', emoji: '🍱', baseCost: 70, note: 'Best traditional Maharashtrian thali', maps: 'Durvankur+Pune' },
+      ],
+      slow: [
+        { name: 'Museum', place: 'Raja Dinkar Kelkar Museum', emoji: '🏛️', baseCost: 30, note: 'Fascinating private collection of Indian artifacts', maps: 'Kelkar+Museum+Pune' },
+        { name: 'Market', place: 'Tulsi Baug Market', emoji: '🛍️', baseCost: 80, note: 'Best budget shopping in Pune', maps: 'Tulsi+Baug+Pune' },
+        { name: 'Café', place: 'Café Goodluck', emoji: '📚', baseCost: 50, note: 'Legendary Irani café since 1935', maps: 'Cafe+Goodluck+Pune' },
+        { name: 'Food street', place: 'FC Road Food Zone', emoji: '🌮', baseCost: 100, note: 'Popular student food street', maps: 'FC+Road+Pune' },
+        { name: 'Heritage', place: 'Shaniwar Wada Fort', emoji: '🏰', baseCost: 25, note: 'Historic Peshwa palace fortress', maps: 'Shaniwar+Wada+Pune' },
+        { name: 'Sunset', place: 'Vetal Tekdi Hill Sunset', emoji: '🌅', baseCost: 0, note: 'Free hilltop sunset with city views', maps: 'Vetal+Tekdi+Pune' },
+        { name: 'Bus', place: 'PMPML City Bus', emoji: '🚌', baseCost: 15, note: 'Cheapest way around Pune', maps: 'PMPML+Pune+bus' },
+      ],
+      adventurous: [
+        { name: 'Trek', place: 'Sinhagad Fort Trek', emoji: '🧗', baseCost: 40, note: 'Famous historical fort, easy half-day trek', maps: 'Sinhagad+Fort+Pune' },
+        { name: 'Cycling', place: 'Mula-Mutha River Cycling Track', emoji: '🚴', baseCost: 50, note: 'Scenic riverside cycling path', maps: 'Mula+Mutha+River+Pune' },
+        { name: 'Sport', place: 'Balewadi Sports Complex', emoji: '🏸', baseCost: 60, note: 'Badminton & swimming complex', maps: 'Balewadi+Sports+Complex+Pune' },
+        { name: 'Nature', place: 'Tamhini Ghat Nature Walk', emoji: '🌲', baseCost: 30, note: 'Beautiful waterfall trail (monsoon season)', maps: 'Tamhini+Ghat+Pune' },
+        { name: 'Open ground', place: 'Nehru Stadium Grounds', emoji: '⚽', baseCost: 0, note: 'Football & cricket grounds', maps: 'Nehru+Stadium+Pune' },
+        { name: 'Day trip', place: 'Rajmachi Fort Trek', emoji: '🏕️', baseCost: 80, note: 'Twin fort trek with amazing views', maps: 'Rajmachi+Fort+Pune' },
+        { name: 'Meal', place: 'Sujata Mastani', emoji: '🥙', baseCost: 60, note: 'Famous Pune mastani (thick milkshake)', maps: 'Sujata+Mastani+Pune' },
+      ]
+    },
+    Jaipur: {
+      chill: [
+        { name: 'Temple', place: 'Govind Dev Ji Temple', emoji: '🛕', baseCost: 0, note: 'Sacred Krishna temple inside City Palace, free', maps: 'Govind+Dev+Ji+Temple+Jaipur' },
+        { name: 'Monument', place: 'Hawa Mahal', emoji: '🏰', baseCost: 50, note: 'Palace of Winds, iconic pink façade', maps: 'Hawa+Mahal+Jaipur' },
+        { name: 'Garden', place: 'Sisodia Rani Garden', emoji: '🌿', baseCost: 20, note: 'Terraced Mughal garden, very peaceful', maps: 'Sisodia+Rani+Garden+Jaipur' },
+        { name: 'Street food', place: 'Laxmi Mishtan Bhandar (LMB)', emoji: '🍽️', baseCost: 60, note: 'Famous for Rajasthani sweets & thali', maps: 'LMB+Jaipur' },
+        { name: 'Chai', place: 'Rawat Mishthan Bhandar', emoji: '☕', baseCost: 25, note: 'Pyaaz kachori & chai, very famous', maps: 'Rawat+Mishtan+Bhandar+Jaipur' },
+        { name: 'Evening', place: 'Nahargarh Fort Sunset', emoji: '🌅', baseCost: 50, note: 'Best sunset view over Pink City', maps: 'Nahargarh+Fort+Jaipur' },
+        { name: 'Lunch', place: 'Chokhi Dhani Village Thali', emoji: '🍱', baseCost: 100, note: 'Authentic Rajasthani thali experience', maps: 'Chokhi+Dhani+Jaipur' },
+      ],
+      slow: [
+        { name: 'Museum', place: 'Albert Hall Museum', emoji: '🏛️', baseCost: 40, note: 'Oldest museum in Rajasthan', maps: 'Albert+Hall+Museum+Jaipur' },
+        { name: 'Market', place: 'Johari Bazaar', emoji: '🛍️', baseCost: 80, note: 'Famous for jewelry & Rajasthani crafts', maps: 'Johari+Bazaar+Jaipur' },
+        { name: 'Café', place: 'Café Palladio', emoji: '📚', baseCost: 80, note: 'Beautiful blue-themed heritage café', maps: 'Cafe+Palladio+Jaipur' },
+        { name: 'Heritage', place: 'City Palace Jaipur', emoji: '🏰', baseCost: 100, note: 'Stunning royal palace complex', maps: 'City+Palace+Jaipur' },
+        { name: 'Food street', place: 'Bapu Bazaar Street Food', emoji: '🌮', baseCost: 80, note: 'Dal baati churma & kachori street', maps: 'Bapu+Bazaar+Jaipur' },
+        { name: 'Heritage walk', place: 'Old Pink City Heritage Walk', emoji: '🚶', baseCost: 0, note: 'Free walk through 300-year-old Pink City', maps: 'Pink+City+Jaipur' },
+        { name: 'Bus', place: 'RSRTC City Bus', emoji: '🚌', baseCost: 15, note: 'Cheapest way to see Jaipur', maps: 'RSRTC+Jaipur' },
+      ],
+      adventurous: [
+        { name: 'Trek', place: 'Amber Fort Hill Trek', emoji: '🧗', baseCost: 50, note: 'Trek up to the magnificent Amber Fort', maps: 'Amber+Fort+Jaipur' },
+        { name: 'Cycling', place: 'Jaipur Cycling Tour (Walled City)', emoji: '🚴', baseCost: 80, note: 'Cycle through the old Pink City', maps: 'Jaipur+cycling+tour' },
+        { name: 'Sport', place: 'Sawai Man Singh Stadium', emoji: '🏸', baseCost: 50, note: 'Sports complex with courts', maps: 'SMS+Stadium+Jaipur' },
+        { name: 'Nature', place: 'Aravalli Hills Walk', emoji: '🌲', baseCost: 0, note: 'Free hill walk near Jaipur', maps: 'Aravalli+Hills+Jaipur' },
+        { name: 'Open ground', place: 'Central Park Jaipur', emoji: '⚽', baseCost: 0, note: 'Huge park for sports & games', maps: 'Central+Park+Jaipur' },
+        { name: 'Day trip', place: 'Sambhar Salt Lake Visit', emoji: '🏕️', baseCost: 60, note: 'India\'s largest inland salt lake', maps: 'Sambhar+Salt+Lake+Jaipur' },
+        { name: 'Meal', place: 'Natraj Restaurant', emoji: '🥙', baseCost: 70, note: 'Best dal baati churma in Jaipur', maps: 'Natraj+Restaurant+Jaipur' },
+      ]
+    }
+  };
+
+  const cityTips = {
+    Chennai: ['Marina Beach is totally free', 'MRTS is cheapest way around', 'Idli-sambar for Rs.20 at mess canteens'],
+    Mumbai: ['BEST bus covers the whole city cheap', 'Dadar flower market is free', 'Vada pav is Rs.15 per piece'],
+    Delhi: ['Metro is student-discount eligible', 'Lodhi Garden & India Gate are free', 'Paranthas at Paranthe Wali Gali = Rs.60'],
+    Bangalore: ['Cubbon Park is free & beautiful', 'BMTC Day Pass = Rs.70 unlimited', 'MTR masala dosa for Rs.40'],
+    Hyderabad: ['Golconda Fort is cheap on weekdays', 'Irani chai is Rs.15 anywhere', 'TSRTC student pass saves a lot'],
+    Kolkata: ['Tram ride is only Rs.10!', 'Victoria Memorial entry is Rs.20', 'Kathi rolls for Rs.40 at street stalls'],
+    Pune: ['Sinhagad trek costs almost nothing', 'FC Road is great for budget food', 'Misal pav for Rs.50 is filling'],
+    Jaipur: ['City Palace has student discount', 'Pink City walk is completely free', 'Pyaaz kachori for Rs.25 at Rawat']
+  };
+
+  function generatePlan() {
+    const pool = cityPlaces[city] ? cityPlaces[city][vibe] : [];
+    let remaining = budget;
+    const chosen = [];
+    const shuffled = [...pool].sort(() => Math.random() - 0.5);
+    for (const act of shuffled) {
+      const total = act.baseCost * people;
+      if (remaining - total >= 0 || act.baseCost === 0) {
+        chosen.push({ ...act, total });
+        remaining -= total;
+        if (chosen.length >= 5) break;
+      }
+    }
+    const spent = budget - remaining;
+    const pct = Math.min(100, Math.round((spent / budget) * 100));
+
+    document.getElementById('planTitle').textContent = vibe.charAt(0).toUpperCase() + vibe.slice(1) + ' Day in ' + city;
+    document.getElementById('planMeta').textContent = '₹' + budget.toLocaleString('en-IN') + ' for ' + people + ' people · ₹' + Math.round(budget / people).toLocaleString('en-IN') + ' per person';
+
+    document.getElementById('activityList').innerHTML = chosen.map(a => `
+      <div class="activity">
+        <div class="activity-top">
+          <div class="activity-emoji">${a.emoji}</div>
+          <div class="activity-info">
+            <div class="activity-name">${a.name}</div>
+            <div class="activity-place">📍 ${a.place}</div>
+            <div class="activity-note">${a.note}</div>
+          </div>
+          <div class="activity-cost">${a.total === 0 ? 'Free' : '₹' + a.total.toLocaleString('en-IN')}</div>
+        </div>
+        <a class="maps-btn" href="https://www.google.com/maps/search/${a.maps}" target="_blank">
+          🗺️ Open in Google Maps
+        </a>
+      </div>`).join('');
+
+    const fill = document.getElementById('budgetBarFill');
+    fill.style.width = pct + '%';
+    fill.style.background = pct > 90 ? '#f04a7a' : pct > 70 ? '#f0c44a' : '#c8f04a';
+    document.getElementById('barLabel').textContent = '₹' + spent.toLocaleString('en-IN') + ' / ₹' + budget.toLocaleString('en-IN');
+    document.getElementById('sumSpent').textContent = '₹' + spent.toLocaleString('en-IN');
+    document.getElementById('sumSaved').textContent = '₹' + remaining.toLocaleString('en-IN');
+    document.getElementById('sumPer').textContent = '₹' + Math.round(spent / people).toLocaleString('en-IN');
+    document.getElementById('tipsGrid').innerHTML = (cityTips[city] || cityTips['Chennai']).map(t => `<div class="tip"><strong>Tip</strong>${t}</div>`).join('');
+
+    const res = document.getElementById('results');
+    res.style.display = 'none'; res.classList.remove('show');
+    setTimeout(() => { res.style.display = 'block'; res.classList.add('show'); }, 10);
+    res.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    window._lastPlan = { chosen, city, vibe, budget, people, spent, remaining };
+  }
+
+  function copyPlan() {
+    const p = window._lastPlan; if (!p) return;
+    let txt = `BudgetBuddy Plan - ${p.vibe.toUpperCase()} DAY IN ${p.city.toUpperCase()}\n`;
+    txt += `Budget: Rs.${p.budget} | People: ${p.people} | Per person: Rs.${Math.round(p.budget / p.people)}\n\n`;
+    p.chosen.forEach(a => { txt += `${a.emoji} ${a.name} — ${a.place}\n   ${a.note}\n   Cost: ${a.total === 0 ? 'Free' : 'Rs.' + a.total}\n   Maps: https://www.google.com/maps/search/${a.maps}\n\n`; });
+    txt += `Total spent: Rs.${p.spent} | Saved: Rs.${p.remaining}\nGenerated by BudgetBuddy`;
+    navigator.clipboard.writeText(txt).then(() => {
+      const btn = document.querySelector('.share-btn');
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = '📋 Copy Plan as Text', 2000);
+    });
+  }
+</script>
+</body>
+</html>
